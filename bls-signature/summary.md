@@ -17,12 +17,12 @@
     * Signature is useless without the signing `message` and signing `public key`
     * A message is assured by a signer who posseses the `sk` corresponding to the `pk`
   * Verification
-    * to verify that a `sig` is signed by the owner of `sk` for
+    * Verify that a `message` is signed by the `sk` corresponding to the embedded `pk`
   * Private key aggregation
   * Public key aggregation
   * Signature aggregation
   * Hierarchical Key Derivation
-* Signature requires `sk`, `message`
+* Signing requires `sk`, `message`
 * Signature verification requires `pk`, `message` and `signature`
 
 ***

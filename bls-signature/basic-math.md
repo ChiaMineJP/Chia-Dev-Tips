@@ -20,7 +20,7 @@ q = 0x1A0111EA397FE69A4B1BA7B6434BACD764774B84F38512BF6730D2A0F6B0F6241EABFFFEB1
 ***
 
 * Operation on elliptic curve
-  * For distinct points $$P_1, P_2$$ on an elliptic curve $$E(F_q)$$, point add operation is defined as
+  * For distinct points $$P_1, P_2$$ on an elliptic curve $$E(F_q)$$, point add operation is defined:
     * Draw the line through $$P_1$$ and $$P_2$$
       * This line typically intersects the curve at exactly one other point $$P_3$$
       * Reflect $$P_3$$ across the x-axis (i.e. negate the y-coordinate)
@@ -56,7 +56,7 @@ q = 0x1A0111EA397FE69A4B1BA7B6434BACD764774B84F38512BF6730D2A0F6B0F6241EABFFFEB1
   * Using $$e(\alpha P, \beta Q)=e(P,Q)^{ab}$$,
     * $$e(G_{1gen},\space  \sigma )=e(G_{1gen},\space  \text{sk1}\cdot H(m_1))=e(G_{1gen},\space \text{sk1}\cdot \mu_1\cdot G_{2gen})=e(G_{1gen}, \space G_{2gen})^{\mu_1\cdot \text{sk1}}$$
     * $$e(\text{pk},\space H(m_2)) = e(\text{sk2}\cdot G_{1gen},\space \mu_2\cdot G_{2gen}) = e(G_{1gen},\space G_{2gen})^{\mu_2\cdot \text{sk2}}$$
-    * So if $$\text{pk}$$ and $$\sigma$$ are derived by the same $$\text{sk}$$ and a message, then\
+    * So if public key $$\text{pk}$$ and signature $$\sigma$$ are derived by the same private key $$\text{sk}$$ and a message, then\
       $$e(G_{1gen}, \sigma)  =e(\text{pk}, H(m))$$
 
 
