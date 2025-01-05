@@ -15,7 +15,10 @@ q = 0x1A0111EA397FE69A4B1BA7B6434BACD764774B84F38512BF6730D2A0F6B0F6241EABFFFEB1
   * $$P \in G_1, Q \in G_2$$
   * $$\alpha , \beta \in \Z_r (\Z\mod r)$$
   * $$e(P,Q)\in \Z_r$$
-* Before proceeding ahead, I'll add some basic knowledge for better understanding
+* In order to understand how the above pairing operation guarantees bls signature validity, you need learn at least
+  * Group theory
+  * Finite field / Ring theory
+  * Elliptic curve operation
 
 ***
 
