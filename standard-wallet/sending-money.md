@@ -28,7 +28,7 @@
        * When executing a puzzle (function) with a solution (arguments), the program will fail or output a list of conditions.
        * If executing the program with the solution doesn't fail and does output a list of conditions which are all valid, spending a coin will be successful.
     3. and one provides correct signatures optionally requested by the conditions on valid spend.
-  * For standard spend (sending xch/txch), what makes you the "uniuque" coin owner depends on the ability to create a signature of a coin id (hash of parent\_coin\_id, puzzle\_hash, amount) with a private key corresponding to the public key embedded into the standard puzzle hash.
+  * For standard spend (sending xch/txch), what makes you the "unique" coin owner is the ability to create a signature of a coin id (hash of parent\_coin\_id, puzzle\_hash, amount) and a genesis id (id of network like mainnet/testnet) with a private key corresponding to the public key embedded into the standard puzzle hash.
 
 #### Puzzle of the standard transaction
 
@@ -82,8 +82,6 @@
 )
 ```
 {% endcode %}
-
-
 {% endtab %}
 
 {% tab title="Chialisp (with comments)" %}
@@ -180,11 +178,8 @@
     SYNTHETIC_PUBLIC_KEY original_public_key delegated_puzzle
   (a delegated_puzzle solution))
 )
-
 ```
 {% endcode %}
-
-
 {% endtab %}
 
 {% tab title="JavaScript" %}
@@ -283,7 +278,12 @@ function create_puzzle_for_synthetic_pub_key(
 {% endtab %}
 {% endtabs %}
 
-
-
-
+* Official implementation of standard wallet sets empty `original_public_key` , so actually puzzle of standard transaction can be extremely simplified
+  * Get arbitral conditions by running `(a delegated_puzzle solution)`
+  * Append `(AGG_SIG_ME SYNTHETIC_PUBLIC_KEY sha256tree(delegated_puzzle)` to the conditions `(a puzzle solution)`generates
+* You may notice that `delegated_puzzle` is included as an input of `AGG_SIG_ME` while `solution` is not.
+* This means the content of `delegated_puzzle`is guaranteed by the signature while `solution` might be forged/replaced by malicious middle men.
+* So, in almost cases standard wallet puts every condition it wants to output into `delegated_puzzle`and set `solution`to `()`(empty).
+  * delegated\_puzzle: `(list (list CREATE_COIN puzHash amount) ...)`&#x20;
+  * solution: `()`
 
