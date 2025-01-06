@@ -20,10 +20,270 @@
   * When you want to send your money to someone, you need to know the wallet address (thus target puzzle hash) to send.
   * Once you know the target address (puzzle hash), you can create a new coin with the target puzzle hash and amount by consuming your coin
 * So how you can spend a coin? In other words, what makes you the coin owner?
-  * Coin can be spent only if
-    * you know the original puzzle (program/function) whose hashed value matches the puzzle hash of the unspent coin you want to spend.
-    * you provide the right solution (program inputs / function arguments) to the puzzle
-      * When executing a puzzle (function) with a solution (arguments), the program will fail or output a list of conditions.
-      * If executing the program with the solution doesn't fail and does output a list of conditions which are all valid, spending a coin will be successful.
-    * you provide correct signatures optionally requested by the conditions on valid spend.
+  * Actually, "owner" is not a right word in Chia world.
+  * Because everyone can spend a coin if
+    1. one knows the original puzzle (program/function) whose hashed value matches the puzzle hash of the unspent coin you want to spend.
+       * Yes you read right, program can be uniquely hashed into an integer in Chia. This is the weapon brought by chialisp which expresses everything including program as a list!
+    2. and one provides the right solution (program inputs / function arguments) to the puzzle
+       * When executing a puzzle (function) with a solution (arguments), the program will fail or output a list of conditions.
+       * If executing the program with the solution doesn't fail and does output a list of conditions which are all valid, spending a coin will be successful.
+    3. and one provides correct signatures optionally requested by the conditions on valid spend.
+  * For standard spend (sending xch/txch), what makes you the "uniuque" coin owner depends on the ability to create a signature of a coin id (hash of parent\_coin\_id, puzzle\_hash, amount) with a private key corresponding to the public key embedded into the standard puzzle hash.
+
+#### Puzzle of the standard transaction
+
+{% tabs %}
+{% tab title="Chialisp (omit comments)" %}
+{% code overflow="wrap" fullWidth="true" %}
+```
+(mod
+  (SYNTHETIC_PUBLIC_KEY original_public_key delegated_puzzle solution)
+
+  (defmacro assert items
+    (if (r items)
+        (list if (f items) (c assert (r items)) (q . (x)))
+        (f items)
+    )
+  )
+
+  (include condition_codes.clib)
+
+  (defun sha256tree1
+    (TREE)
+    (if (l TREE)
+        (sha256 2 (sha256tree1 (f TREE)) (sha256tree1 (r TREE)))
+        (sha256 1 TREE)
+    )
+  )
+
+  (defun-inline is_hidden_puzzle_correct (SYNTHETIC_PUBLIC_KEY original_public_key delegated_puzzle)
+    (=
+      SYNTHETIC_PUBLIC_KEY
+      (point_add
+        original_public_key
+        (pubkey_for_exp (sha256 original_public_key (sha256tree1 delegated_puzzle)))
+      )
+    )
+  )
+
+  (defun-inline possibly_prepend_aggsig (SYNTHETIC_PUBLIC_KEY original_public_key delegated_puzzle conditions)
+    (if original_public_key
+        (assert
+          (is_hidden_puzzle_correct SYNTHETIC_PUBLIC_KEY original_public_key delegated_puzzle)
+          conditions
+        )
+        (c (list AGG_SIG_ME SYNTHETIC_PUBLIC_KEY (sha256tree1 delegated_puzzle)) conditions)
+    )
+  )
+
+  (possibly_prepend_aggsig
+    SYNTHETIC_PUBLIC_KEY original_public_key delegated_puzzle
+  (a delegated_puzzle solution))
+)
+```
+{% endcode %}
+
+
+{% endtab %}
+
+{% tab title="Chialisp (with comments)" %}
+{% code overflow="wrap" fullWidth="true" %}
+```
+; build a pay-to delegated puzzle or hidden puzzle
+; coins can be unlocked by signing a delegated puzzle and its solution
+; OR by revealing the hidden puzzle and the underlying original key
+
+; glossary of parameter names:
+
+; hidden_puzzle: a "hidden puzzle" that can be revealed and used as an alternate
+;   way to unlock the underlying funds
+;
+; synthetic_key_offset: a private key cryptographically generated using the hidden
+;   puzzle and as inputs `original_public_key`
+;
+; SYNTHETIC_PUBLIC_KEY: the public key that is the sum of `original_public_key` and the
+;   public key corresponding to `synthetic_key_offset`
+;
+; original_public_key: a public key, where knowledge of the corresponding private key
+;   represents ownership of the file
+;
+; delegated_puzzle: a delegated puzzle, as in "graftroot", which should return the
+;   desired conditions.
+;
+; solution: the solution to the delegated puzzle
+
+
+(mod
+  ; A puzzle should commit to `SYNTHETIC_PUBLIC_KEY`
+  ;
+  ; The solution should pass in 0 for `original_public_key` if it wants to use
+  ; an arbitrary `delegated_puzzle` (and `solution`) signed by the
+  ; `SYNTHETIC_PUBLIC_KEY` (whose corresponding private key can be calculated
+  ; if you know the private key for `original_public_key`)
+  ;
+  ; Or you can solve the hidden puzzle by revealing the `original_public_key`,
+  ; the hidden puzzle in `delegated_puzzle`, and a solution to the hidden puzzle.
+
+  (SYNTHETIC_PUBLIC_KEY original_public_key delegated_puzzle solution)
+
+  ; "assert" is a macro that wraps repeated instances of "if"
+  ; usage: (assert A0 A1 ... An R)
+  ; all of A0, A1, ... An must evaluate to non-null, or an exception is raised
+  ; return the value of R (if we get that far)
+
+  (defmacro assert items
+    (if (r items)
+        (list if (f items) (c assert (r items)) (q . (x)))
+        (f items)
+    )
+  )
+
+  (include condition_codes.clib)
+
+  ;; hash a tree
+  ;; This is used to calculate a puzzle hash given a puzzle program.
+  (defun sha256tree1
+    (TREE)
+    (if (l TREE)
+        (sha256 2 (sha256tree1 (f TREE)) (sha256tree1 (r TREE)))
+        (sha256 1 TREE)
+    )
+  )
+
+  ; "is_hidden_puzzle_correct" returns true iff the hidden puzzle is correctly encoded
+
+  (defun-inline is_hidden_puzzle_correct (SYNTHETIC_PUBLIC_KEY original_public_key delegated_puzzle)
+    (=
+      SYNTHETIC_PUBLIC_KEY
+      (point_add
+        original_public_key
+        (pubkey_for_exp (sha256 original_public_key (sha256tree1 delegated_puzzle)))
+      )
+    )
+  )
+
+  ; "possibly_prepend_aggsig" is the main entry point
+
+  (defun-inline possibly_prepend_aggsig (SYNTHETIC_PUBLIC_KEY original_public_key delegated_puzzle conditions)
+    (if original_public_key
+        (assert
+          (is_hidden_puzzle_correct SYNTHETIC_PUBLIC_KEY original_public_key delegated_puzzle)
+          conditions
+        )
+        (c (list AGG_SIG_ME SYNTHETIC_PUBLIC_KEY (sha256tree1 delegated_puzzle)) conditions)
+    )
+  )
+
+  ; main entry point
+
+  (possibly_prepend_aggsig
+    SYNTHETIC_PUBLIC_KEY original_public_key delegated_puzzle
+  (a delegated_puzzle solution))
+)
+
+```
+{% endcode %}
+
+
+{% endtab %}
+
+{% tab title="JavaScript" %}
+{% hint style="warning" %}
+This is just a mental model for the chialisp code.
+{% endhint %}
+
+{% hint style="warning" %}
+Actually there are no official JS runtime/compiler for clvm available. So this JS code sample is just a reference for anyone familiar with JavaScript.
+{% endhint %}
+
+{% code overflow="wrap" %}
+```javascript
+function puzzle_standard_transaction (
+  SYNTHETIC_PUBLIC_KEY, // byteArray
+  original_public_key, // null or byteArray
+  delegated_puzzle, // a function
+  solution // arguments of `delegated_puzzle`
+) {
+  // `puzzle_output` should be a list of conditions
+  // e.g. [[CREATE_COIN, puzHash, amount], ...]
+  const puzzle_output = delegated_puzzle(solution);
+  
+  if (original_public_key) {
+    if(!is_hidden_puzzle_correct(
+          SYNTHETIC_PUBLIC_KEY,
+          original_public_key,
+          delegated_puzzle
+        )
+    ){
+      throw new Error();
+    }
+    
+    return puzzle_output;
+  }
+  else {
+    return [
+      // `sha256tree` will be defined in the following code
+      [AGG_SIG_ME, SYNTHETIC_PUBLIC_KEY, sha256tree(delegated_puzzle)],
+      ...puzzle_output,
+    ];
+  }
+}
+
+function is_hidden_puzzle_correct(
+  SYNTHETIC_PUBLIC_KEY,
+  original_public_key,
+  delegated_puzzle
+){
+  // `sha256` is an predefined func which combines bytes of arguments
+  // and hash with sha256.
+  const challenge = sha256(
+    original_public_key,
+    sha256tree(delegated_puzzle)
+  );
+  // `pubkey_for_exp` is predefined func
+  const offset = pubkey_for_exp(challenge);
+  // `poin_add` is predefined func.
+  const challenging_pk = point_add(original_public_key, offset);
+  
+  return challenging_pk === SYNTHETIC_PUBLIC_KEY;
+}
+
+function sha256tree(
+  atom_or_pair // a byte value or a list(array)
+){
+  if(Array.isArray(atom_or_pair)){
+    return sha256(
+      2,
+      sha256tree(atom_or_pair[0]), // Call `sha256tree` recursively
+      sha256tree(atom_or_pair[1]) // Call `sha256tree` recursively
+    );
+  }
+  return sha256(1, atom_or_pair);
+}
+
+// Currying in (pre-allocate) SYNTHETIC_PUBLIC_KEY
+function create_puzzle_for_synthetic_pub_key(
+  SYNTHETIC_PUBLIC_KEY, // byteArray
+){
+  return function(
+    original_public_key,
+    delegated_puzzle,
+    solution
+  ){
+    return puzzle_standard_transaction(
+      SYNTHETIC_PUBLIC_KEY,
+      original_public_key,
+      delegated_puzzle,
+      solution
+    );
+  };
+}
+```
+{% endcode %}
+{% endtab %}
+{% endtabs %}
+
+
+
+
 
