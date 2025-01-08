@@ -184,11 +184,11 @@
 
 {% tab title="JavaScript" %}
 {% hint style="warning" %}
-This is just a mental model for the chialisp code.
+Actually there are no official JS runtime/compiler for clvm available. So this JS code sample is just a reference for anyone familiar with JavaScript.
 {% endhint %}
 
 {% hint style="warning" %}
-Actually there are no official JS runtime/compiler for clvm available. So this JS code sample is just a reference for anyone familiar with JavaScript.
+This is just a mental model for the chialisp code.
 {% endhint %}
 
 {% code overflow="wrap" %}
@@ -282,8 +282,16 @@ function create_puzzle_for_synthetic_pub_key(
   * Get arbitral conditions by running `(a delegated_puzzle solution)`
   * Append `(AGG_SIG_ME SYNTHETIC_PUBLIC_KEY sha256tree(delegated_puzzle)` to the conditions `(a puzzle solution)`generates
 * You may notice that `delegated_puzzle` is included as an input of `AGG_SIG_ME` while `solution` is not.
-* This means the content of `delegated_puzzle`is guaranteed by the signature while `solution` might be forged/replaced by malicious middle men.
+* This means the content of `delegated_puzzle`is guaranteed by the signature while `solution` is not.
 * So, in almost cases standard wallet puts every condition it wants to output into `delegated_puzzle`and set `solution`to `()`(empty).
   * delegated\_puzzle: `(list (list CREATE_COIN puzHash amount) ...)`&#x20;
   * solution: `()`
+* But why not include solution to `AGG_SIG_ME`?
+  * Because there are situations where the output of `(a delegated_puzzle solution)` wants to be controlled partially by the signature (thus the owner of embedded public key) and partially by other entity like `ASSERT_PUZZLE_ANNOUNCEMENT`
+  * The fact `solution` is not included in `AGG_SIG_ME` means that `solution` could be forged/replaced by malicious middle men.
+  * But we can prevent unexpected forging by
+    * Checking allowed content of solution in `delegated_puzzle`
+    * Validating the output of `(a delegated_puzzle solution)` by other coin's `ASSERT_XXX_ANNOUNCEMENT` / `RECEIVE_MESSAGE`&#x20;
+      * In this case, it allows forging but in a limited/expected way. But it's OK because what actually important to blockchain is the output conditions.
+  * So by not including `solution` to `AGG_SIG_ME` in the standard puzzle, it leaves a margin for non-signers to have the ability to control the output conditions (in other words, how to spend a coin).
 
